@@ -10,7 +10,7 @@ from sol_arbitrage_bot.constants import SOL_MINT, TOKEN_PROGRAM_ID
 from sol_arbitrage_bot.solana_client import SolanaClient
 
 from .pool_base import LiquidityPool
-from .layouts import AMM_V4_LAYOUT
+from .layouts import AMM_V4_LAYOUT, MARKET_STATE_LAYOUT_V3
 
 
 AMM_V4_PROGRAM_ID = Pubkey.from_string("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8")
@@ -131,10 +131,68 @@ class AmmV4PoolKeys:
         )
 
 
+@dataclass
+class MarketStateV3:
+    account_flags: dict
+    own_address: Pubkey
+    vault_signer_nonce: int
+    base_mint: Pubkey
+    quote_mint: Pubkey
+    base_vault: Pubkey
+    base_deposits_total: int
+    base_fees_accrued: int
+    quote_vault: Pubkey
+    quote_deposits_total: int
+    quote_fees_accrued: int
+    quote_dust_threshold: int
+    request_queue: Pubkey
+    event_queue: Pubkey
+    bids: Pubkey
+    asks: Pubkey
+    base_lot_size: int
+    quote_lot_size: int
+    fee_rate_bps: int
+    referrer_rebate_accrued: int
+
+    @classmethod
+    def from_decoded(cls, decoded: dict) -> "MarketStateV3":
+        return cls(
+            account_flags={
+                "initialized": decoded["account_flags"]["initialized"],
+                "market": decoded["account_flags"]["market"],
+                "open_orders": decoded["account_flags"]["open_orders"],
+                "request_queue": decoded["account_flags"]["request_queue"],
+                "event_queue": decoded["account_flags"]["event_queue"],
+                "bids": decoded["account_flags"]["bids"],
+                "asks": decoded["account_flags"]["asks"],
+            },
+            own_address=Pubkey.from_bytes(decoded["own_address"]),
+            vault_signer_nonce=decoded["vault_signer_nonce"],
+            base_mint=Pubkey.from_bytes(decoded["base_mint"]),
+            quote_mint=Pubkey.from_bytes(decoded["quote_mint"]),
+            base_vault=Pubkey.from_bytes(decoded["base_vault"]),
+            base_deposits_total=decoded["base_deposits_total"],
+            base_fees_accrued=decoded["base_fees_accrued"],
+            quote_vault=Pubkey.from_bytes(decoded["quote_vault"]),
+            quote_deposits_total=decoded["quote_deposits_total"],
+            quote_fees_accrued=decoded["quote_fees_accrued"],
+            quote_dust_threshold=decoded["quote_dust_threshold"],
+            request_queue=Pubkey.from_bytes(decoded["request_queue"]),
+            event_queue=Pubkey.from_bytes(decoded["event_queue"]),
+            bids=Pubkey.from_bytes(decoded["bids"]),
+            asks=Pubkey.from_bytes(decoded["asks"]),
+            base_lot_size=decoded["base_lot_size"],
+            quote_lot_size=decoded["quote_lot_size"],
+            fee_rate_bps=decoded["fee_rate_bps"],
+            referrer_rebate_accrued=decoded["referrer_rebate_accrued"],
+        )
+
+
 class AmmV4Pool(LiquidityPool):
-    def __init__(self, pair_address: Pubkey, pool_keys: AmmV4PoolKeys):
+    def __init__(self, pair_address: Pubkey, pool_keys: AmmV4PoolKeys, market_state: MarketStateV3):
         self.pair_address = pair_address
         self.pool_keys = pool_keys
+        self.market_state = market_state
 
     async def get_token_price(self, solana_client: SolanaClient, base_mint: Pubkey = SOL_MINT) -> Optional[float]:
         """
@@ -220,7 +278,7 @@ class AmmV4Pool(LiquidityPool):
     """         return None """
 
 
-def decode_amm_v4_pool(pair_address: Pubkey, amm_data: bytes) -> Optional[AmmV4Pool]:
+def decode_amm_v4_pool_keys(amm_data: bytes) -> Optional[AmmV4PoolKeys]:
     try:
         amm_data_decoded = AMM_V4_LAYOUT.parse(amm_data)
     except Exception as e:
@@ -228,7 +286,21 @@ def decode_amm_v4_pool(pair_address: Pubkey, amm_data: bytes) -> Optional[AmmV4P
         return None
 
     try:
-        return AmmV4Pool(pair_address, AmmV4PoolKeys.from_decoded(amm_data_decoded))
+        return AmmV4PoolKeys.from_decoded(amm_data_decoded)
+    except Exception as e:
+        logging.error(f"Error constructing pool keys: {e}")
+        return None
+
+
+def decode_market_state_v3(market_data: bytes) -> Optional[MarketStateV3]:
+    try:
+        market_data_decoded = MARKET_STATE_LAYOUT_V3.parse(market_data)
+    except Exception as e:
+        logging.error(f"Error parsing AMM data: {e}")
+        return None
+
+    try:
+        return MarketStateV3.from_decoded(market_data_decoded)
     except Exception as e:
         logging.error(f"Error constructing pool keys: {e}")
         return None

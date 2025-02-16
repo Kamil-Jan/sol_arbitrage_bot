@@ -35,19 +35,19 @@ class RewardInfo:
     reward_growth_global_x64: int
 
     @classmethod
-    def from_decoded(cls, parsed: dict) -> "RewardInfo":
+    def from_decoded(cls, decoded: dict) -> "RewardInfo":
         return cls(
-            reward_state=parsed["rewardState"],
-            open_time=parsed["openTime"],
-            end_time=parsed["endTime"],
-            last_update_time=parsed["lastUpdateTime"],
-            emissions_per_second_x64=parsed["emissionsPerSecondX64"],
-            reward_total_emissioned=parsed["rewardTotalEmissioned"],
-            reward_claimed=parsed["rewardClaimed"],
-            token_mint=Pubkey.from_bytes(parsed["tokenMint"]),
-            token_vault=Pubkey.from_bytes(parsed["tokenVault"]),
-            creator=Pubkey.from_bytes(parsed["creator"]),
-            reward_growth_global_x64=parsed["rewardGrowthGlobalX64"],
+            reward_state=decoded["rewardState"],
+            open_time=decoded["openTime"],
+            end_time=decoded["endTime"],
+            last_update_time=decoded["lastUpdateTime"],
+            emissions_per_second_x64=decoded["emissionsPerSecondX64"],
+            reward_total_emissioned=decoded["rewardTotalEmissioned"],
+            reward_claimed=decoded["rewardClaimed"],
+            token_mint=Pubkey.from_bytes(decoded["tokenMint"]),
+            token_vault=Pubkey.from_bytes(decoded["tokenVault"]),
+            creator=Pubkey.from_bytes(decoded["creator"]),
+            reward_growth_global_x64=decoded["rewardGrowthGlobalX64"],
         )
 
 @dataclass
@@ -90,44 +90,44 @@ class ClmmPoolKeys:
     padding: List[int] = field(default_factory=lambda: [0] * 57)
 
     @classmethod
-    def from_decoded(cls, parsed: dict) -> "ClmmPoolKeys":
+    def from_decoded(cls, decoded: dict) -> "ClmmPoolKeys":
         return cls(
-            blob=parsed["blob"],
-            bump=parsed["bump"],
-            amm_config=Pubkey.from_bytes(parsed["ammConfig"]),
-            creator=Pubkey.from_bytes(parsed["creator"]),
-            mint_a=Pubkey.from_bytes(parsed["mintA"]),
-            mint_b=Pubkey.from_bytes(parsed["mintB"]),
-            vault_a=Pubkey.from_bytes(parsed["vaultA"]),
-            vault_b=Pubkey.from_bytes(parsed["vaultB"]),
-            observation_id=Pubkey.from_bytes(parsed["observationId"]),
-            mint_decimals_a=parsed["mintDecimalsA"],
-            mint_decimals_b=parsed["mintDecimalsB"],
-            tick_spacing=parsed["tickSpacing"],
-            liquidity=parsed["liquidity"],
-            sqrt_price_x64=parsed["sqrtPriceX64"],
-            tick_current=parsed["tickCurrent"],
-            unknown=parsed["unknown"],
-            fee_growth_global_x64a=parsed["feeGrowthGlobalX64A"],
-            fee_growth_global_x64b=parsed["feeGrowthGlobalX64B"],
-            protocol_fees_token_a=parsed["protocolFeesTokenA"],
-            protocol_fees_token_b=parsed["protocolFeesTokenB"],
-            swap_in_amount_token_a=parsed["swapInAmountTokenA"],
-            swap_out_amount_token_b=parsed["swapOutAmountTokenB"],
-            swap_in_amount_token_b=parsed["swapInAmountTokenB"],
-            swap_out_amount_token_a=parsed["swapOutAmountTokenA"],
-            status=parsed["status"],
-            unknown_seq=parsed["unknown_seq"],
-            reward_infos=[RewardInfo.from_decoded(r) for r in parsed["rewardInfos"]],
-            tick_array_bitmap=parsed["tickArrayBitmap"],
-            total_fees_token_a=parsed["totalFeesTokenA"],
-            total_fees_claimed_token_a=parsed["totalFeesClaimedTokenA"],
-            total_fees_token_b=parsed["totalFeesTokenB"],
-            total_fees_claimed_token_b=parsed["totalFeesClaimedTokenB"],
-            fund_fees_token_a=parsed["fundFeesTokenA"],
-            fund_fees_token_b=parsed["fundFeesTokenB"],
-            start_time=parsed["startTime"],
-            padding=parsed["padding"],
+            blob=decoded["blob"],
+            bump=decoded["bump"],
+            amm_config=Pubkey.from_bytes(decoded["ammConfig"]),
+            creator=Pubkey.from_bytes(decoded["creator"]),
+            mint_a=Pubkey.from_bytes(decoded["mintA"]),
+            mint_b=Pubkey.from_bytes(decoded["mintB"]),
+            vault_a=Pubkey.from_bytes(decoded["vaultA"]),
+            vault_b=Pubkey.from_bytes(decoded["vaultB"]),
+            observation_id=Pubkey.from_bytes(decoded["observationId"]),
+            mint_decimals_a=decoded["mintDecimalsA"],
+            mint_decimals_b=decoded["mintDecimalsB"],
+            tick_spacing=decoded["tickSpacing"],
+            liquidity=decoded["liquidity"],
+            sqrt_price_x64=decoded["sqrtPriceX64"],
+            tick_current=decoded["tickCurrent"],
+            unknown=decoded["unknown"],
+            fee_growth_global_x64a=decoded["feeGrowthGlobalX64A"],
+            fee_growth_global_x64b=decoded["feeGrowthGlobalX64B"],
+            protocol_fees_token_a=decoded["protocolFeesTokenA"],
+            protocol_fees_token_b=decoded["protocolFeesTokenB"],
+            swap_in_amount_token_a=decoded["swapInAmountTokenA"],
+            swap_out_amount_token_b=decoded["swapOutAmountTokenB"],
+            swap_in_amount_token_b=decoded["swapInAmountTokenB"],
+            swap_out_amount_token_a=decoded["swapOutAmountTokenA"],
+            status=decoded["status"],
+            unknown_seq=decoded["unknown_seq"],
+            reward_infos=[RewardInfo.from_decoded(r) for r in decoded["rewardInfos"]],
+            tick_array_bitmap=decoded["tickArrayBitmap"],
+            total_fees_token_a=decoded["totalFeesTokenA"],
+            total_fees_claimed_token_a=decoded["totalFeesClaimedTokenA"],
+            total_fees_token_b=decoded["totalFeesTokenB"],
+            total_fees_claimed_token_b=decoded["totalFeesClaimedTokenB"],
+            fund_fees_token_a=decoded["fundFeesTokenA"],
+            fund_fees_token_b=decoded["fundFeesTokenB"],
+            start_time=decoded["startTime"],
+            padding=decoded["padding"],
         )
 
 
@@ -160,7 +160,7 @@ class ClmmPool(LiquidityPool):
             return None
 
 
-def decode_clmm_pool(pair_address: Pubkey, clmm_data: bytes) -> ClmmPool:
+def decode_clmm_pool_keys(pair_address: Pubkey, clmm_data: bytes) -> Optional[ClmmPoolKeys]:
     try:
         clmm_data_decoded = CLMM_LAYOUT.parse(clmm_data)
     except Exception as e:
@@ -168,7 +168,7 @@ def decode_clmm_pool(pair_address: Pubkey, clmm_data: bytes) -> ClmmPool:
         return None
 
     try:
-        return ClmmPool(pair_address, ClmmPoolKeys.from_decoded(clmm_data_decoded))
+        return ClmmPoolKeys.from_decoded(clmm_data_decoded)
     except Exception as e:
         logging.error(f"Error constructing pool keys: {e}")
         return None

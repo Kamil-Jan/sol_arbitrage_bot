@@ -79,7 +79,7 @@ class SolanaClient:
         response = await self._rpc_call(
             self.client.get_multiple_accounts_json_parsed,
             pubkeys,
-            Processed
+            Processed,
         )
         if response is not None:
             return response.value
@@ -88,7 +88,8 @@ class SolanaClient:
     async def get_account_info_json_parsed(self, address: Pubkey) -> Optional[Any]:
         response = await self._rpc_call(
             self.client.get_account_info_json_parsed,
-            address
+            address,
+            Processed,
         )
         if response is not None:
             return response.value
@@ -99,7 +100,7 @@ class SolanaClient:
             self.client.get_token_accounts_by_owner,
             owner,
             TokenAccountOpts(token_mint),
-            Processed
+            Processed,
         )
         if response is not None:
             return response.value
