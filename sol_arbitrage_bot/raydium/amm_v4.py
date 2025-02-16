@@ -1,10 +1,12 @@
 import logging
+import struct
 from dataclasses import dataclass, field
 from typing import List, Optional
 
 from solders.pubkey import Pubkey
+from solders.instruction import AccountMeta, Instruction
 
-from sol_arbitrage_bot.constants import SOL_MINT
+from sol_arbitrage_bot.constants import SOL_MINT, TOKEN_PROGRAM_ID
 from sol_arbitrage_bot.solana_client import SolanaClient
 
 from .pool_base import LiquidityPool
@@ -12,6 +14,8 @@ from .layouts import AMM_V4_LAYOUT
 
 
 AMM_V4_PROGRAM_ID = Pubkey.from_string("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8")
+RAY_AUTHORITY_V4 = Pubkey.from_string("5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1")
+OPEN_BOOK_PROGRAM = Pubkey.from_string("srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX")
 
 @dataclass
 class AmmV4PoolKeys:
@@ -132,7 +136,7 @@ class AmmV4Pool(LiquidityPool):
         self.pair_address = pair_address
         self.pool_keys = pool_keys
 
-    async def get_token_price(self, solana_client: SolanaClient, base_mint_address: str = SOL_MINT) -> Optional[float]:
+    async def get_token_price(self, solana_client: SolanaClient, base_mint: Pubkey = SOL_MINT) -> Optional[float]:
         """
         Calculates the token price based on the given pool's reserves.
         """
@@ -154,15 +158,14 @@ class AmmV4Pool(LiquidityPool):
                 logging.error("One of the pool account balances is None.")
                 return None
 
-            base_mint_pubkey = Pubkey.from_string(base_mint_address)
-            if self.pool_keys.base_mint == base_mint_pubkey:
+            if self.pool_keys.base_mint == base_mint:
                 base_reserve = base_vault_balance
                 quote_reserve = quote_vault_balance
-            elif self.pool_keys.quote_mint == base_mint_pubkey:
+            elif self.pool_keys.quote_mint == base_mint:
                 base_reserve = quote_vault_balance
                 quote_reserve = base_vault_balance
             else:
-                logging.error(f"Invalid base mint address {base_mint_address} for pool {self.pair_address}")
+                logging.error(f"Invalid base mint address {base_mint} for pool {self.pair_address}")
                 return None
 
             if quote_reserve == 0:
@@ -174,8 +177,50 @@ class AmmV4Pool(LiquidityPool):
             logging.error(f"Error calculating token price: {e}")
             return None
 
+    """ def make_v4_swap_instruction( """
+    """     self, """
+    """     amount_in: int, """
+    """     minimum_amount_out: int, """
+    """     token_account_in: Pubkey, """
+    """     token_account_out: Pubkey, """
+    """     owner: Pubkey """
+    """ ) -> Optional[Instruction]: """
+    """     try: """
+    """         keys = [ """
+    """             AccountMeta(pubkey=TOKEN_PROGRAM_ID, is_signer=False, is_writable=False), """
+    """             AccountMeta(pubkey=self.pair_address, is_signer=False, is_writable=True), """
+    """             AccountMeta(pubkey=RAY_AUTHORITY_V4, is_signer=False, is_writable=False), """
+    """             AccountMeta(pubkey=self.pool_keys.open_orders, is_signer=False, is_writable=True), """
+    """             AccountMeta(pubkey=self.pool_keys.target_orders, is_signer=False, is_writable=True), """
+    """             AccountMeta(pubkey=self.pool_keys.base_vault, is_signer=False, is_writable=True), """
+    """             AccountMeta(pubkey=self.pool_keys.quote_vault, is_signer=False, is_writable=True), """
+    """             AccountMeta(pubkey=OPEN_BOOK_PROGRAM, is_signer=False, is_writable=False), """
+    """             AccountMeta(pubkey=self.pool_keys.market_id, is_signer=False, is_writable=True), """
+    """             AccountMeta(pubkey=self.pool_keys.bids, is_signer=False, is_writable=True), """
+    """             AccountMeta(pubkey=self.pool_keys.asks, is_signer=False, is_writable=True), """
+    """             AccountMeta(pubkey=self.pool_keys.event_queue, is_signer=False, is_writable=True), """
+    """             AccountMeta(pubkey=self.pool_keys.market_base_vault, is_signer=False, is_writable=True), """
+    """             AccountMeta(pubkey=self.pool_keys.market_quote_vault, is_signer=False, is_writable=True), """
+    """             AccountMeta(pubkey=self.pool_keys.market_authority, is_signer=False, is_writable=False), """
+    """             AccountMeta(pubkey=token_account_in, is_signer=False, is_writable=True), """
+    """             AccountMeta(pubkey=token_account_out, is_signer=False, is_writable=True), """
+    """             AccountMeta(pubkey=owner, is_signer=True, is_writable=False) """
+    """         ] """
+    """"""
+    """         data = bytearray() """
+    """         discriminator = 9 """
+    """         data.extend(struct.pack('<B', discriminator)) """
+    """         data.extend(struct.pack('<Q', amount_in)) """
+    """         data.extend(struct.pack('<Q', minimum_amount_out)) """
+    """         swap_instruction = Instruction(AMM_V4_PROGRAM_ID, bytes(data), keys) """
+    """"""
+    """         return swap_instruction """
+    """     except Exception as e: """
+    """         print(f"Error occurred: {e}") """
+    """         return None """
 
-def decode_amm_v4_pool(pair_address: Pubkey, amm_data: bytes) -> AmmV4Pool:
+
+def decode_amm_v4_pool(pair_address: Pubkey, amm_data: bytes) -> Optional[AmmV4Pool]:
     try:
         amm_data_decoded = AMM_V4_LAYOUT.parse(amm_data)
     except Exception as e:

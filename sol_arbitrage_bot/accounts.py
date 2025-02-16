@@ -11,7 +11,7 @@ from spl.token.instructions import (
     get_associated_token_address,
     initialize_account,
 )
-from spl.token.client import AsyncToken
+from spl.token.async_client import AsyncToken
 
 from solders.pubkey import Pubkey
 from solders.keypair import Keypair
@@ -41,7 +41,7 @@ async def get_or_create_token_account(solana_client: SolanaClient, payer_keypair
         return token_account, create_instruction
 
 
-async def create_and_init_wsol_account(solana_client: SolanaClient, payer_keypair: Keypair, mint: Pubkey, amount_in: int) -> Tuple[Pubkey, object, object]:
+async def create_and_init_wsol_account_instructions(solana_client: SolanaClient, payer_keypair: Keypair, amount_in: int) -> Tuple[Optional[Pubkey], object, object]:
     seed = base64.urlsafe_b64encode(os.urandom(24)).decode("utf-8")
     wsol_token_account = Pubkey.create_with_seed(
         payer_keypair.pubkey(), seed, TOKEN_PROGRAM_ID
@@ -49,7 +49,7 @@ async def create_and_init_wsol_account(solana_client: SolanaClient, payer_keypai
     balance_needed = await AsyncToken.get_min_balance_rent_for_exempt_for_account(solana_client.client)
     if balance_needed is None:
         logging.error(f"Could not get get_min_balance_rent_for_exempt_for_account")
-        return None
+        return None, None, None
 
     create_wsol_instruction = create_account_with_seed(
         CreateAccountWithSeedParams(
@@ -71,3 +71,15 @@ async def create_and_init_wsol_account(solana_client: SolanaClient, payer_keypai
         )
     )
     return wsol_token_account, create_wsol_instruction, init_wsol_instruction
+
+
+def close_wsol_account_instruction(wsol_token_account: Pubkey, payer_keypair: Keypair) -> object:
+    return close_account(
+        CloseAccountParams(
+            program_id=TOKEN_PROGRAM_ID,
+            account=wsol_token_account,
+            dest=payer_keypair.pubkey(),
+            owner=payer_keypair.pubkey(),
+        )
+    )
+

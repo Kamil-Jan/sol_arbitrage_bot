@@ -136,7 +136,8 @@ class ClmmPool(LiquidityPool):
         self.pair_address = pair_address
         self.pool_keys = pool_keys
 
-    async def get_token_price(self, solana_client: SolanaClient, base_mint_address: str = SOL_MINT) -> Optional[float]:
+    async def get_token_price(self, solana_client: SolanaClient, base_mint: Pubkey = SOL_MINT) -> Optional[float]:
+
         """
         Calculates the token price based on the given pool's reserves.
         """
@@ -147,13 +148,12 @@ class ClmmPool(LiquidityPool):
                 self.pool_keys.mint_decimals_b,
             )
 
-            base_mint_pubkey = Pubkey.from_string(base_mint_address)
-            if self.pool_keys.mint_a == base_mint_pubkey:
+            if self.pool_keys.mint_a == base_mint:
                 return 1 / price
-            elif self.pool_keys.mint_b == base_mint_pubkey:
+            elif self.pool_keys.mint_b == base_mint:
                 return price
             else:
-                logging.error(f"Invalid base mint address {base_mint_address} for pool {self.pair_address}")
+                logging.error(f"Invalid base mint address {base_mint} for pool {self.pair_address}")
                 return None
         except Exception as e:
             logging.error(f"Error calculating token price: {e}")

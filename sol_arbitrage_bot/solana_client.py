@@ -1,12 +1,13 @@
 import asyncio
 import aiohttp
 import logging
-from typing import List, Any, Optional
+from typing import List, Any, Optional, Union
 
 from solana.rpc.async_api import AsyncClient
-from solana.rpc.types import TokenAccountOpts
+from solana.rpc.types import TokenAccountOpts, TxOpts
 from solana.rpc.commitment import Processed
 from solders.pubkey import Pubkey
+from solders.transaction import Transaction, VersionedTransaction
 
 from .constants import SOL_RPC_URL
 
@@ -120,3 +121,13 @@ class SolanaClient:
         if response is not None:
             return response.value
         return None
+
+    async def send_transaction(self, txn: Union[VersionedTransaction, Transaction], opts: Optional[TxOpts] = None):
+        response = await self._rpc_call(
+            self.client.send_transaction,
+            txn, opts
+        )
+        if response is not None:
+            return response.value
+        return None
+

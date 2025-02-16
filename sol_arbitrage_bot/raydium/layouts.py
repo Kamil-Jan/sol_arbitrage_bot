@@ -1,4 +1,4 @@
-from construct import Array, Bytes, Int8ul, Int16ul, Int32ul, Int32sl, Int64ul, BytesInteger
+from construct import *
 from construct import Struct as cStruct
 
 
@@ -55,6 +55,45 @@ AMM_V4_LAYOUT = cStruct(
     "owner" / Bytes(32),
     "lpReserve" / Int64ul,
     "padding" / Array(3, Int64ul)
+)
+
+
+ACCOUNT_FLAGS_LAYOUT = BitsSwapped(
+    BitStruct(
+        "initialized" / Flag,
+        "market" / Flag,
+        "open_orders" / Flag,
+        "request_queue" / Flag,
+        "event_queue" / Flag,
+        "bids" / Flag,
+        "asks" / Flag,
+        Const(0, BitsInteger(57)),
+    )
+)
+
+MARKET_STATE_LAYOUT_V3 = cStruct(
+    Padding(5),
+    "account_flags" / ACCOUNT_FLAGS_LAYOUT,
+    "own_address" / Bytes(32),
+    "vault_signer_nonce" / Int64ul,
+    "base_mint" / Bytes(32),
+    "quote_mint" / Bytes(32),
+    "base_vault" / Bytes(32),
+    "base_deposits_total" / Int64ul,
+    "base_fees_accrued" / Int64ul,
+    "quote_vault" / Bytes(32),
+    "quote_deposits_total" / Int64ul,
+    "quote_fees_accrued" / Int64ul,
+    "quote_dust_threshold" / Int64ul,
+    "request_queue" / Bytes(32),
+    "event_queue" / Bytes(32),
+    "bids" / Bytes(32),
+    "asks" / Bytes(32),
+    "base_lot_size" / Int64ul,
+    "quote_lot_size" / Int64ul,
+    "fee_rate_bps" / Int64ul,
+    "referrer_rebate_accrued" / Int64ul,
+    Padding(7),
 )
 
 RewardInfo = cStruct(
