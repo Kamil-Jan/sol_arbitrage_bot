@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from arbitrage_bot.solana_client import SolanaClient
+from sol_arbitrage_bot.solana_client import SolanaClient
 
 
 class LiquidityPool(ABC):

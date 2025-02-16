@@ -2,7 +2,7 @@ import aiohttp
 import logging
 from typing import Dict, List, Any, Optional
 
-from arbitrage_bot.constants import SOL_MINT
+from sol_arbitrage_bot.constants import SOL_MINT
 
 
 RAYDIUM_API_URL =  "https://api-v3.raydium.io"

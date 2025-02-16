@@ -1,9 +1,9 @@
 import asyncio
 from solders.pubkey import Pubkey
 
-from arbitrage_bot.solana_client import SolanaClient
-from arbitrage_bot.raydium.raydium_fetcher import RaydiumFetcher
-from arbitrage_bot.raydium.liquidity_pool import fetch_liquidity_pool
+from sol_arbitrage_bot.solana_client import SolanaClient
+from sol_arbitrage_bot.raydium.raydium_fetcher import RaydiumFetcher
+from sol_arbitrage_bot.raydium.liquidity_pool import fetch_liquidity_pool
 
 
 async def main():
