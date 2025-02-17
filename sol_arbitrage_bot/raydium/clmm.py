@@ -160,7 +160,7 @@ class ClmmPool(LiquidityPool):
             return None
 
 
-def decode_clmm_pool_keys(pair_address: Pubkey, clmm_data: bytes) -> Optional[ClmmPoolKeys]:
+def decode_clmm_pool_keys(clmm_data: bytes) -> Optional[ClmmPoolKeys]:
     try:
         clmm_data_decoded = CLMM_LAYOUT.parse(clmm_data)
     except Exception as e:

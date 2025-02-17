@@ -1,21 +1,30 @@
 import logging
 import struct
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Tuple, List, Optional
 
 from solders.pubkey import Pubkey
+from solders.keypair import Keypair
 from solders.instruction import AccountMeta, Instruction
 
-from sol_arbitrage_bot.constants import SOL_MINT, TOKEN_PROGRAM_ID
+from sol_arbitrage_bot.constants import SOL_MINT, SOL_DECIMALS, TOKEN_PROGRAM_ID
 from sol_arbitrage_bot.solana_client import SolanaClient
+from sol_arbitrage_bot.accounts import *
 
 from .pool_base import LiquidityPool
 from .layouts import AMM_V4_LAYOUT, MARKET_STATE_LAYOUT_V3
 
 
 AMM_V4_PROGRAM_ID = Pubkey.from_string("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8")
+OPEN_BOOK_PROGRAM_ID = Pubkey.from_string("srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX")
 RAY_AUTHORITY_V4 = Pubkey.from_string("5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1")
-OPEN_BOOK_PROGRAM = Pubkey.from_string("srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX")
+
+
+def bytes_of(value):
+    if not (0 <= value < 2**64):
+        raise ValueError("Value must be in the range of a u64 (0 to 2^64 - 1).")
+    return struct.pack('<Q', value)
+
 
 @dataclass
 class AmmV4PoolKeys:
@@ -193,11 +202,37 @@ class AmmV4Pool(LiquidityPool):
         self.pair_address = pair_address
         self.pool_keys = pool_keys
         self.market_state = market_state
+        self.authority = Pubkey.create_program_address(
+            seeds=[bytes(self.pool_keys.market_id),
+                   bytes_of(self.market_state.vault_signer_nonce)],
+            program_id=OPEN_BOOK_PROGRAM_ID
+        )
 
-    async def get_token_price(self, solana_client: SolanaClient, base_mint: Pubkey = SOL_MINT) -> Optional[float]:
-        """
-        Calculates the token price based on the given pool's reserves.
-        """
+    def get_quote_mint(self, base_mint: Pubkey) -> Optional[Pubkey]:
+        if self.pool_keys.base_mint == base_mint:
+            return self.pool_keys.quote_mint
+        elif self.pool_keys.quote_mint == base_mint:
+            return self.pool_keys.base_mint
+        logging.error(f"Invalid base mint address {base_mint} for pool {self.pair_address}")
+        return None
+
+    def get_base_quote_decimals(self, base_mint: Pubkey) -> Optional[Tuple[int, int]]:
+        if self.pool_keys.base_mint == base_mint:
+            base_decimals = self.pool_keys.base_decimals
+            quote_decimals = self.pool_keys.quote_decimals
+        elif self.pool_keys.quote_mint == base_mint:
+            base_decimals = self.pool_keys.quote_decimals
+            quote_decimals = self.pool_keys.base_decimals
+        else:
+            logging.error(f"Invalid base mint address {base_mint} for pool {self.pair_address}")
+            return None
+        return base_decimals, quote_decimals
+
+    async def __get_base_quote_reserves(
+        self,
+        solana_client: SolanaClient,
+        base_mint: Pubkey
+    ) -> Optional[Tuple[int, int]]:
         try:
             base_vault_balance_resp = await solana_client.get_token_account_balance(self.pool_keys.base_vault)
             if base_vault_balance_resp is None:
@@ -230,53 +265,210 @@ class AmmV4Pool(LiquidityPool):
                 logging.warning("Quote reserve is zero, cannot calculate price.")
                 return None
 
-            return base_reserve / quote_reserve
+            return base_reserve, quote_reserve
         except Exception as e:
             logging.error(f"Error calculating token price: {e}")
             return None
 
-    """ def make_v4_swap_instruction( """
-    """     self, """
-    """     amount_in: int, """
-    """     minimum_amount_out: int, """
-    """     token_account_in: Pubkey, """
-    """     token_account_out: Pubkey, """
-    """     owner: Pubkey """
-    """ ) -> Optional[Instruction]: """
-    """     try: """
-    """         keys = [ """
-    """             AccountMeta(pubkey=TOKEN_PROGRAM_ID, is_signer=False, is_writable=False), """
-    """             AccountMeta(pubkey=self.pair_address, is_signer=False, is_writable=True), """
-    """             AccountMeta(pubkey=RAY_AUTHORITY_V4, is_signer=False, is_writable=False), """
-    """             AccountMeta(pubkey=self.pool_keys.open_orders, is_signer=False, is_writable=True), """
-    """             AccountMeta(pubkey=self.pool_keys.target_orders, is_signer=False, is_writable=True), """
-    """             AccountMeta(pubkey=self.pool_keys.base_vault, is_signer=False, is_writable=True), """
-    """             AccountMeta(pubkey=self.pool_keys.quote_vault, is_signer=False, is_writable=True), """
-    """             AccountMeta(pubkey=OPEN_BOOK_PROGRAM, is_signer=False, is_writable=False), """
-    """             AccountMeta(pubkey=self.pool_keys.market_id, is_signer=False, is_writable=True), """
-    """             AccountMeta(pubkey=self.pool_keys.bids, is_signer=False, is_writable=True), """
-    """             AccountMeta(pubkey=self.pool_keys.asks, is_signer=False, is_writable=True), """
-    """             AccountMeta(pubkey=self.pool_keys.event_queue, is_signer=False, is_writable=True), """
-    """             AccountMeta(pubkey=self.pool_keys.market_base_vault, is_signer=False, is_writable=True), """
-    """             AccountMeta(pubkey=self.pool_keys.market_quote_vault, is_signer=False, is_writable=True), """
-    """             AccountMeta(pubkey=self.pool_keys.market_authority, is_signer=False, is_writable=False), """
-    """             AccountMeta(pubkey=token_account_in, is_signer=False, is_writable=True), """
-    """             AccountMeta(pubkey=token_account_out, is_signer=False, is_writable=True), """
-    """             AccountMeta(pubkey=owner, is_signer=True, is_writable=False) """
-    """         ] """
-    """"""
-    """         data = bytearray() """
-    """         discriminator = 9 """
-    """         data.extend(struct.pack('<B', discriminator)) """
-    """         data.extend(struct.pack('<Q', amount_in)) """
-    """         data.extend(struct.pack('<Q', minimum_amount_out)) """
-    """         swap_instruction = Instruction(AMM_V4_PROGRAM_ID, bytes(data), keys) """
-    """"""
-    """         return swap_instruction """
-    """     except Exception as e: """
-    """         print(f"Error occurred: {e}") """
-    """         return None """
+    async def get_token_price(self, solana_client: SolanaClient, base_mint: Pubkey = SOL_MINT) -> Optional[float]:
+        reserves = await self.__get_base_quote_reserves(solana_client, base_mint)
+        if reserves is None:
+            return None
+        base_reserve, quote_reserve = reserves
+        return base_reserve / quote_reserve
 
+    def make_swap_instruction(
+        self,
+        amount_in: int,
+        minimum_amount_out: int,
+        token_account_in: Pubkey,
+        token_account_out: Pubkey,
+        owner: Pubkey
+    ) -> Optional[Instruction]:
+        try:
+            keys = [
+                AccountMeta(pubkey=TOKEN_PROGRAM_ID, is_signer=False, is_writable=False),
+                AccountMeta(pubkey=self.pair_address, is_signer=False, is_writable=True),
+                AccountMeta(pubkey=RAY_AUTHORITY_V4, is_signer=False, is_writable=False),
+                AccountMeta(pubkey=self.pool_keys.open_orders, is_signer=False, is_writable=True),
+                AccountMeta(pubkey=self.pool_keys.target_orders, is_signer=False, is_writable=True),
+                AccountMeta(pubkey=self.pool_keys.base_vault, is_signer=False, is_writable=True),
+                AccountMeta(pubkey=self.pool_keys.quote_vault, is_signer=False, is_writable=True),
+                AccountMeta(pubkey=OPEN_BOOK_PROGRAM_ID, is_signer=False, is_writable=False),
+                AccountMeta(pubkey=self.pool_keys.market_id, is_signer=False, is_writable=True),
+                AccountMeta(pubkey=self.market_state.bids, is_signer=False, is_writable=True),
+                AccountMeta(pubkey=self.market_state.asks, is_signer=False, is_writable=True),
+                AccountMeta(pubkey=self.market_state.event_queue, is_signer=False, is_writable=True),
+                AccountMeta(pubkey=self.market_state.base_vault, is_signer=False, is_writable=True),
+                AccountMeta(pubkey=self.market_state.quote_vault, is_signer=False, is_writable=True),
+                AccountMeta(pubkey=self.authority, is_signer=False, is_writable=False),
+                AccountMeta(pubkey=token_account_in, is_signer=False, is_writable=True),
+                AccountMeta(pubkey=token_account_out, is_signer=False, is_writable=True),
+                AccountMeta(pubkey=owner, is_signer=True, is_writable=False)
+            ]
+
+            data = bytearray()
+            discriminator = 9
+            data.extend(struct.pack('<B', discriminator))
+            data.extend(struct.pack('<Q', amount_in))
+            data.extend(struct.pack('<Q', minimum_amount_out))
+            swap_instruction = Instruction(AMM_V4_PROGRAM_ID, bytes(data), keys)
+
+            return swap_instruction
+        except Exception as e:
+            print(f"Error occurred: {e}")
+            return None
+
+    async def calculate_received_quote_tokens(
+        self,
+        solana_client: SolanaClient,
+        base_in: float,
+        base_mint: Pubkey,
+    ) -> Optional[float]:
+        reserves = await self.__get_base_quote_reserves(solana_client, base_mint)
+        if reserves is None:
+            logging.error("Could not get base reserves while making buy instructions")
+            return None
+
+        base_reserve, quote_reserve = reserves
+
+        swap_fee = self.pool_keys.swap_fee_numerator / self.pool_keys.swap_fee_denominator
+        effective_used = base_in - (base_in * (swap_fee / 100))
+        constant_product = base_reserve * quote_reserve
+        updated_quote_vault_balance = constant_product / (base_reserve + effective_used)
+        tokens_received = quote_reserve - updated_quote_vault_balance
+        return round(tokens_received, 9)
+
+    async def calculate_received_base_tokens(
+        self,
+        solana_client: SolanaClient,
+        quote_in: float,
+        base_mint: Pubkey,
+    ) -> Optional[float]:
+        reserves = await self.__get_base_quote_reserves(solana_client, base_mint)
+        if reserves is None:
+            logging.error("Could not get base reserves while making buy instructions")
+            return None
+
+        base_reserve, quote_reserve = reserves
+
+        swap_fee = self.pool_keys.swap_fee_numerator / self.pool_keys.swap_fee_denominator
+        effective_used = quote_in - (quote_in * (swap_fee / 100))
+        constant_product = base_reserve * quote_reserve
+        updated_base_vault_balance = constant_product / (quote_reserve + effective_used)
+        tokens_received = base_reserve - updated_base_vault_balance
+        return round(tokens_received, 9)
+
+    async def make_buy_instructions(
+        self,
+        solana_client: SolanaClient,
+        payer_keypair: Keypair,
+        slippage: float,
+        base_in: float,
+        quote_token_account: Pubkey,
+        base_token_account: Pubkey,
+        base_mint: Pubkey,
+    ) -> Optional[List[Instruction]]:
+        quote_mint_base_quote_decimals = self.get_base_quote_decimals(base_mint)
+        if quote_mint_base_quote_decimals is None:
+            return None
+
+        base_decimals, quote_decimals = quote_mint_base_quote_decimals
+        base_in_count = base_in * (10 ** base_decimals)
+
+        quote_out = await self.calculate_received_quote_tokens(
+            solana_client,
+            base_in,
+            base_mint
+        )
+        if quote_out is None:
+            return None
+
+        quote_out_count = quote_out * (10 ** quote_decimals)
+
+        slippage_adjustment = 1 - (slippage / 100)
+        minimum_quote_out_count = int(quote_out_count * slippage_adjustment)
+
+        swap_instruction = self.make_swap_instruction(
+            amount_in=base_in_count,
+            minimum_amount_out=minimum_quote_out_count,
+            token_account_in=base_token_account,
+            token_account_out=quote_token_account,
+            owner=payer_keypair.pubkey()
+        )
+        if swap_instruction is None:
+            return None
+
+        return [swap_instruction]
+
+    async def make_sell_instructions(
+        self,
+        solana_client: SolanaClient,
+        payer_keypair: Keypair,
+        slippage: float,
+        percentage: int,
+        quote_token_account: Pubkey,
+        base_token_account: Pubkey,
+        base_mint: Pubkey,
+    ) -> Optional[List[Instruction]]:
+        if not (1 <= percentage <= 100):
+            logging.error("percentage must be between 1 and 100")
+            return None
+
+        quote_balance = await solana_client.get_token_account_balance(quote_token_account)
+        if quote_balance is None:
+            logging.error("could not fetch quote balance")
+            return None
+        print(quote_balance)
+
+        base_quote_decimals = self.get_base_quote_decimals(base_mint)
+        if base_quote_decimals is None:
+            logging.error("invalid base mint")
+            return
+
+        base_decimals, quote_decimals = base_quote_decimals
+
+        quote_in = quote_balance.ui_amount * (percentage / 100)
+        quote_in_count = int(quote_in * (10 ** quote_decimals))
+
+        base_out = await self.calculate_received_base_tokens(
+            solana_client,
+            quote_in,
+            base_mint,
+        )
+        print(quote_in, base_out)
+        if base_out is None:
+            return None
+
+        base_out_count = int(base_out * (10 ** base_decimals))
+
+        slippage_adjustment = 1 - (slippage / 100)
+        minimum_base_out_count = int(base_out_count * slippage_adjustment)
+
+        swap_instruction = self.make_swap_instruction(
+            amount_in=quote_in_count,
+            minimum_amount_out=minimum_base_out_count,
+            token_account_in=quote_token_account,
+            token_account_out=base_token_account,
+            owner=payer_keypair.pubkey()
+        )
+        if swap_instruction is None:
+            return None
+
+        instructions = [swap_instruction]
+
+        if percentage == 100:
+            close_token_account_instruction = close_account(
+                CloseAccountParams(
+                    program_id=TOKEN_PROGRAM_ID,
+                    account=quote_token_account,
+                    dest=payer_keypair.pubkey(),
+                    owner=payer_keypair.pubkey(),
+                )
+            )
+            instructions.append(close_token_account_instruction)
+
+        return instructions
 
 def decode_amm_v4_pool_keys(amm_data: bytes) -> Optional[AmmV4PoolKeys]:
     try:
@@ -304,3 +496,4 @@ def decode_market_state_v3(market_data: bytes) -> Optional[MarketStateV3]:
     except Exception as e:
         logging.error(f"Error constructing pool keys: {e}")
         return None
+

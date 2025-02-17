@@ -1,7 +1,7 @@
 import logging
 import base64
 import os
-from typing import Tuple, Optional
+from typing import Tuple, List, Optional
 
 from spl.token.instructions import (
     CloseAccountParams,
@@ -15,6 +15,7 @@ from spl.token.async_client import AsyncToken
 
 from solders.pubkey import Pubkey
 from solders.keypair import Keypair
+from solders.instruction import Instruction
 from solders.system_program import (
     CreateAccountWithSeedParams,
     create_account_with_seed,
@@ -24,24 +25,32 @@ from .solana_client import SolanaClient
 from .constants import SOL_MINT, TOKEN_PROGRAM_ID, ACCOUNT_LAYOUT_LEN
 
 
-async def get_or_create_token_account(solana_client: SolanaClient, payer_keypair: Keypair, mint: Pubkey) -> Tuple[Pubkey, Optional[object]]:
+async def get_or_create_token_account(
+    solana_client: SolanaClient,
+    payer_keypair: Keypair,
+    mint: Pubkey
+) -> Tuple[Pubkey, Optional[Instruction]]:
     token_account_check = await solana_client.get_token_accounts_by_owner(
         payer_keypair.pubkey(), mint,
     )
     if token_account_check is not None:
-        logging.info(f"Token account for {mint} found")
-        token_account = token_account_check[0].pubkey
-        return token_account, None
-    else:
-        logging.info(f"Token account for {mint} is not found. Creating instruction")
-        token_account = get_associated_token_address(payer_keypair.pubkey(), mint)
-        create_instruction = create_associated_token_account(
-            payer_keypair.pubkey(), payer_keypair.pubkey(), mint
-        )
-        return token_account, create_instruction
+        if len(token_account_check) > 0:
+            logging.info(f"Token account for {mint} found")
+            token_account = token_account_check[0].pubkey
+            return token_account, None
+    logging.info(f"Token account for {mint} is not found. Creating instruction")
+    token_account = get_associated_token_address(payer_keypair.pubkey(), mint)
+    create_instruction = create_associated_token_account(
+        payer_keypair.pubkey(), payer_keypair.pubkey(), mint
+    )
+    return token_account, create_instruction
 
 
-async def create_and_init_wsol_account_instructions(solana_client: SolanaClient, payer_keypair: Keypair, amount_in: int) -> Tuple[Optional[Pubkey], object, object]:
+async def create_and_init_wsol_account_instructions(
+    solana_client: SolanaClient,
+    payer_keypair: Keypair,
+    amount_in: int
+) -> Optional[Tuple[Pubkey, List[Instruction]]]:
     seed = base64.urlsafe_b64encode(os.urandom(24)).decode("utf-8")
     wsol_token_account = Pubkey.create_with_seed(
         payer_keypair.pubkey(), seed, TOKEN_PROGRAM_ID
@@ -49,7 +58,7 @@ async def create_and_init_wsol_account_instructions(solana_client: SolanaClient,
     balance_needed = await AsyncToken.get_min_balance_rent_for_exempt_for_account(solana_client.client)
     if balance_needed is None:
         logging.error(f"Could not get get_min_balance_rent_for_exempt_for_account")
-        return None, None, None
+        return None
 
     create_wsol_instruction = create_account_with_seed(
         CreateAccountWithSeedParams(
@@ -70,10 +79,10 @@ async def create_and_init_wsol_account_instructions(solana_client: SolanaClient,
             owner=payer_keypair.pubkey(),
         )
     )
-    return wsol_token_account, create_wsol_instruction, init_wsol_instruction
+    return wsol_token_account, [create_wsol_instruction, init_wsol_instruction]
 
 
-def close_wsol_account_instruction(wsol_token_account: Pubkey, payer_keypair: Keypair) -> object:
+def close_wsol_account_instruction(wsol_token_account: Pubkey, payer_keypair: Keypair) -> Instruction:
     return close_account(
         CloseAccountParams(
             program_id=TOKEN_PROGRAM_ID,
