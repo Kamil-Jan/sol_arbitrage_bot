@@ -10,7 +10,11 @@ from sol_arbitrage_bot.constants import SOL_MINT, TOKEN_PROGRAM_ID
 from sol_arbitrage_bot.solana_client import SolanaClient
 from sol_arbitrage_bot.raydium.pool_base import LiquidityPool
 
-from .constants import CLMM_PROGRAM_ID, TOKEN_2022_PROGRAM_ID, MEMO_PROGRAM_V2
+from .constants import (
+    CLMM_PROGRAM_ID,
+    TOKEN_2022_PROGRAM_ID,
+    MEMO_PROGRAM_V2
+)
 from .layouts import CLMM_LAYOUT
 
 
@@ -269,7 +273,7 @@ class ClmmPool(LiquidityPool):
     """         return None """
 
 
-def decode_clmm_pool_keys(clmm_data: bytes) -> Optional[ClmmPoolKeys]:
+def __decode_clmm_pool_keys(clmm_data: bytes) -> Optional[ClmmPoolKeys]:
     try:
         clmm_data_decoded = CLMM_LAYOUT.parse(clmm_data)
     except Exception as e:
@@ -282,3 +286,15 @@ def decode_clmm_pool_keys(clmm_data: bytes) -> Optional[ClmmPoolKeys]:
         logging.error(f"Error constructing pool keys: {e}")
         return None
 
+
+def is_clmm_pool(pool_data) -> bool:
+    return pool_data.owner == CLMM_PROGRAM_ID
+
+
+async def fetch_clmm_pool(solana_client: SolanaClient, pair_address: Pubkey, pool_data) -> Optional[ClmmPool]:
+    pool_keys = __decode_clmm_pool_keys(pool_data.data)
+    if pool_keys is None:
+        logging.error(f"Failed to fetch CLMM pool keys for {pair_address}")
+        return None
+
+    return ClmmPool(pair_address, pool_keys)

@@ -12,8 +12,15 @@ from sol_arbitrage_bot.solana_client import SolanaClient
 from sol_arbitrage_bot.accounts import *
 
 from sol_arbitrage_bot.pool_base import LiquidityPool
-from .layouts import AMM_V4_LAYOUT, MARKET_STATE_LAYOUT_V3
-from .constants import AMM_V4_PROGRAM_ID, OPEN_BOOK_PROGRAM_ID, RAY_AUTHORITY_V4
+from .layouts import (
+    AMM_V4_LAYOUT,
+    MARKET_STATE_LAYOUT_V3
+)
+from .constants import (
+    AMM_V4_PROGRAM_ID,
+    OPEN_BOOK_PROGRAM_ID,
+    RAY_AUTHORITY_V4
+)
 
 
 def bytes_of(value):
@@ -471,7 +478,7 @@ class AmmV4Pool(LiquidityPool):
 
         return instructions
 
-def decode_amm_v4_pool_keys(amm_data: bytes) -> Optional[AmmV4PoolKeys]:
+def __decode_amm_v4_pool_keys(amm_data: bytes) -> Optional[AmmV4PoolKeys]:
     try:
         amm_data_decoded = AMM_V4_LAYOUT.parse(amm_data)
     except Exception as e:
@@ -485,7 +492,7 @@ def decode_amm_v4_pool_keys(amm_data: bytes) -> Optional[AmmV4PoolKeys]:
         return None
 
 
-def decode_market_state_v3(market_data: bytes) -> Optional[MarketStateV3]:
+def __decode_market_state_v3(market_data: bytes) -> Optional[MarketStateV3]:
     try:
         market_data_decoded = MARKET_STATE_LAYOUT_V3.parse(market_data)
     except Exception as e:
@@ -498,3 +505,24 @@ def decode_market_state_v3(market_data: bytes) -> Optional[MarketStateV3]:
         logging.error(f"Error constructing pool keys: {e}")
         return None
 
+
+def is_amm_v4_pool(pool_data) -> bool:
+    return pool_data.owner == AMM_V4_PROGRAM_ID
+
+
+async def fetch_amm_v4_pool(solana_client: SolanaClient, pair_address: Pubkey, pool_data) -> Optional[AmmV4Pool]:
+    pool_keys = __decode_amm_v4_pool_keys(pool_data.data)
+    if pool_keys is None:
+        logging.error(f"Failed to fetch AMM pool keys for {pair_address}")
+        return None
+
+    market_data = await solana_client.get_account_info_json_parsed(pool_keys.market_id)
+    if market_data is None or not market_data:
+        logging.error(f"Failed to fetch AMM market data for {pair_address}")
+        return None
+
+    market_state = __decode_market_state_v3(market_data.data)
+    if market_state is None:
+        logging.error(f"Failed to fetch Market state for {pair_address}")
+        return None
+    return AmmV4Pool(pair_address, pool_keys, market_state)
