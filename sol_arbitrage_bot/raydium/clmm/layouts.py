@@ -1,8 +1,9 @@
 from construct import *
 from construct import Struct as cStruct
 
+EXTENSION_TICKARRAY_BITMAP_SIZE = 14
 
-RewardInfo = cStruct(
+REWARD_INFO = cStruct(
     "rewardState" / Int8ul,
     "openTime" / Int64ul,
     "endTime" / Int64ul,
@@ -43,7 +44,7 @@ CLMM_LAYOUT = cStruct(
     "swapOutAmountTokenA" / BytesInteger(16, signed=False, swapped=True),
     "status" / Int8ul,
     "unknown_seq" / Array(7, Int8ul),
-    "rewardInfos" / Array(3, RewardInfo),
+    "rewardInfos" / Array(3, REWARD_INFO),
     "tickArrayBitmap" / Array(16, Int64ul),
     "totalFeesTokenA" / Int64ul,
     "totalFeesClaimedTokenA" / Int64ul,
@@ -55,3 +56,15 @@ CLMM_LAYOUT = cStruct(
     "padding" / Array(57, Int64ul)
 )
 
+TICK_ARRAY_BITMAP_EXTENSION = Struct(
+    Padding(8),
+    "pool_id" / Bytes(32),
+    "positive_tick_array_bitmap" / Array(
+        EXTENSION_TICKARRAY_BITMAP_SIZE,
+        Array(8, Int64ul)
+    ),
+    "negative_tick_array_bitmap" / Array(
+        EXTENSION_TICKARRAY_BITMAP_SIZE,
+        Array(8, Int64ul)
+    )
+)

@@ -19,7 +19,8 @@ async def fetch_liquidity_pool(solana_client: SolanaClient, pair_address: Pubkey
         return None
 
     if raydium_liquidity_pool.is_raydium_pool(pool_data):
-        return raydium_liquidity_pool.fetch_raydium_liquidity_pool(solana_client, pair_address, pool_data)
+        pool = await raydium_liquidity_pool.fetch_liquidity_pool(solana_client, pair_address, pool_data)
     else:
         logging.error(f"Unknown pool type {pool_data.owner}")
         return None
+    return pool

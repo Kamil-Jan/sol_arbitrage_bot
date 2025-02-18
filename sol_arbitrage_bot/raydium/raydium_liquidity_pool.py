@@ -11,7 +11,7 @@ from sol_arbitrage_bot.raydium.clmm import clmm
 
 
 def is_raydium_pool(pool_data) -> bool:
-    return amm_v4.is_amm_v4_pool(pool_data) or amm_v4.is_clmm_pool(pool_data)
+    return amm_v4.is_amm_v4_pool(pool_data) or clmm.is_clmm_pool(pool_data)
 
 
 async def fetch_liquidity_pool(solana_client: SolanaClient, pair_address: Pubkey, pool_data) -> Optional[LiquidityPool]:
@@ -19,9 +19,10 @@ async def fetch_liquidity_pool(solana_client: SolanaClient, pair_address: Pubkey
     Fetches and decodes the pool keys from the Raydium pair address.
     """
     if amm_v4.is_amm_v4_pool(pool_data):
-        return amm_v4.fetch_amm_v4_pool(solana_client, pair_address, pool_data)
+        pool = await amm_v4.fetch_amm_v4_pool(solana_client, pair_address, pool_data)
     elif clmm.is_clmm_pool(pool_data):
-        return clmm.fetch_clmm_pool(solana_client, pair_address, pool_data)
+        pool = await clmm.fetch_clmm_pool(solana_client, pair_address, pool_data)
     else:
         logging.error(f"Unknown pool type {pool_data.owner}")
         return None
+    return pool

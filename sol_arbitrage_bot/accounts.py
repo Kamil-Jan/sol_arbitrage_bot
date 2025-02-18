@@ -82,7 +82,7 @@ async def create_and_init_wsol_account_instructions(
     return wsol_token_account, [create_wsol_instruction, init_wsol_instruction]
 
 
-def close_wsol_account_instruction(wsol_token_account: Pubkey, payer_keypair: Keypair) -> Instruction:
+def close_account_instruction(wsol_token_account: Pubkey, payer_keypair: Keypair) -> Instruction:
     return close_account(
         CloseAccountParams(
             program_id=TOKEN_PROGRAM_ID,

@@ -7,7 +7,7 @@ from solders.message import MessageV0
 
 from sol_arbitrage_bot.constants import UNIT_BUDGET, UNIT_PRICE
 from sol_arbitrage_bot.accounts import *
-from sol_arbitrage_bot.raydium.pool_base import LiquidityPool
+from sol_arbitrage_bot.pool_base import LiquidityPool
 
 from .solana_client import SolanaClient
 
@@ -48,19 +48,20 @@ async def send_transaction(
 
 async def arbitrage(
     solana_client: SolanaClient,
-    liquidity_pool: LiquidityPool,
+    buy_liquidity_pool: LiquidityPool,
+    sell_liquidity_pool: LiquidityPool,
     payer_keypair: Keypair,
     base_in: float,
     base_mint: Pubkey = SOL_MINT,
 ):
     instructions = make_transaction_fee_instructions()
 
-    quote_mint = liquidity_pool.get_quote_mint(base_mint)
+    quote_mint = buy_liquidity_pool.get_quote_mint(base_mint)
     if quote_mint is None:
         logging.error("invalid base mint")
         return
 
-    base_quote_decimals = liquidity_pool.get_base_quote_decimals(base_mint)
+    base_quote_decimals = buy_liquidity_pool.get_base_quote_decimals(base_mint)
     if base_quote_decimals is None:
         logging.error("invalid base mint")
         return
@@ -84,7 +85,7 @@ async def arbitrage(
     if create_token_account_instruction is not None:
         instructions.append(create_token_account_instruction)
 
-    buy_instructions = await liquidity_pool.make_buy_instructions(
+    buy_instructions = await buy_liquidity_pool.make_buy_instructions(
         solana_client=solana_client,
         payer_keypair=payer_keypair,
         slippage=0.1,
@@ -97,6 +98,21 @@ async def arbitrage(
         return
 
     instructions.extend(buy_instructions)
-    instructions.append(close_wsol_account_instruction(wsol_token_account, payer_keypair))
+
+    sell_instructions = await sell_liquidity_pool.make_sell_instructions(
+        solana_client=solana_client,
+        payer_keypair=payer_keypair,
+        slippage=1,
+        percentage=100,
+        quote_token_account=token_account,
+        base_token_account=wsol_token_account,
+        base_mint=SOL_MINT,
+    )
+    if sell_instructions is None:
+        return
+
+    instructions.extend(sell_instructions)
+
+    instructions.append(close_account_instruction(wsol_token_account, payer_keypair))
     return send_transaction(solana_client, payer_keypair, instructions)
 
