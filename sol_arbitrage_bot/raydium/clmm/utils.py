@@ -1,3 +1,4 @@
+import logging
 import struct
 from solders.pubkey import Pubkey
 from .constants import CLMM_PROGRAM_ID
@@ -15,6 +16,9 @@ def load_current_and_next_tick_arrays(pool_id, tick_current, tick_spacing, tick_
     _, current_valid_tick_array_start_index = get_first_initialized_tick_array(
         tick_current, tick_spacing, tick_array_bitmap, tickarray_bitmap_extension, zero_for_one
     )
+    if current_valid_tick_array_start_index is None:
+        logging.error("could not get current_valid_tick_array_start_index")
+        return
 
     tick_array_keys = []
     initial_tick_array_key = get_pda_tick_array_address(pool_id, current_valid_tick_array_start_index)

@@ -63,7 +63,7 @@ class LiquidityPool(ABC):
         quote_token_account: Pubkey,
         base_token_account: Pubkey,
         base_mint: Pubkey,
-    ) -> Optional[List[Instruction]]:
+    ) -> Optional[Tuple[float, List[Instruction]]]:
         quote_mint_base_quote_decimals = self.get_base_quote_decimals(base_mint)
         if quote_mint_base_quote_decimals is None:
             return None
@@ -95,27 +95,18 @@ class LiquidityPool(ABC):
         if swap_instruction is None:
             return None
 
-        return [swap_instruction]
+        return minimum_quote_out_count / (10 ** quote_decimals), [swap_instruction]
 
     async def make_sell_instructions(
         self,
         solana_client: SolanaClient,
         payer_keypair: Keypair,
         slippage: float,
-        percentage: int,
+        quote_in: float,
         quote_token_account: Pubkey,
         base_token_account: Pubkey,
         base_mint: Pubkey,
     ) -> Optional[List[Instruction]]:
-        if not (1 <= percentage <= 100):
-            logging.error("percentage must be between 1 and 100")
-            return None
-
-        quote_balance = await solana_client.get_token_account_balance(quote_token_account)
-        if quote_balance is None:
-            logging.error("could not fetch quote balance")
-            return None
-
         base_quote_decimals = self.get_base_quote_decimals(base_mint)
         if base_quote_decimals is None:
             logging.error("invalid base mint")
@@ -127,7 +118,6 @@ class LiquidityPool(ABC):
         if quote_mint is None:
             return None
 
-        quote_in = quote_balance.ui_amount * (percentage / 100)
         quote_in_count = int(quote_in * (10 ** quote_decimals))
 
         base_out = await self.calculate_received_base_tokens(
@@ -156,10 +146,10 @@ class LiquidityPool(ABC):
 
         instructions = [swap_instruction]
 
-        if percentage == 100:
-            close_token_account_instruction = close_account_instruction(
-                quote_token_account, payer_keypair
-            )
-            instructions.append(close_token_account_instruction)
+        """ if percentage == 100: """
+        """     close_token_account_instruction = close_account_instruction( """
+        """         quote_token_account, payer_keypair """
+        """     ) """
+        """     instructions.append(close_token_account_instruction) """
 
         return instructions

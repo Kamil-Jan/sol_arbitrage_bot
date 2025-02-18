@@ -284,7 +284,7 @@ def __decode_clmm_pool_keys(clmm_data: bytes) -> Optional[ClmmPoolKeys]:
         return None
 
 
-async def fetch_tick_array_info(solana_client: SolanaClient, pair_address: Pubkey, pool_keys: ClmmPoolKeys) -> Optional[TickArrayInfo]:
+async def __fetch_tick_array_info(solana_client: SolanaClient, pair_address: Pubkey, pool_keys: ClmmPoolKeys) -> Optional[TickArrayInfo]:
     tick_current = int(pool_keys.tick_current)
     tick_spacing = int(pool_keys.tick_spacing)
 
@@ -305,6 +305,9 @@ async def fetch_tick_array_info(solana_client: SolanaClient, pair_address: Pubke
     tick_array_bitmap = list(pool_keys.tick_array_bitmap)
     tickarray_bitmap_extension = [positive_tick_array_bitmap, negative_tick_array_bitmap]
     tick_array_keys = load_current_and_next_tick_arrays(pair_address, tick_current, tick_spacing, tick_array_bitmap, tickarray_bitmap_extension, zero_for_one=True)
+    if tick_array_keys is None:
+        logging.error(f"Failed to fetch CLMM tick arrays for {pair_address}")
+        return None
 
     if len(tick_array_keys) < 3:
         logging.error(f"Failed to fetch CLMM tick arrays for {pair_address}")
@@ -325,8 +328,9 @@ async def fetch_clmm_pool(solana_client: SolanaClient, pair_address: Pubkey, poo
         logging.error(f"Failed to fetch CLMM pool keys for {pair_address}")
         return None
 
-    tick_array_info = await fetch_tick_array_info(solana_client, pair_address, pool_keys)
+    tick_array_info = await __fetch_tick_array_info(solana_client, pair_address, pool_keys)
     if tick_array_info is None:
         logging.error(f"Failed to fetch CLMM tick array info for {pair_address}")
         return None
     return ClmmPool(pair_address, pool_keys, tick_array_info)
+
