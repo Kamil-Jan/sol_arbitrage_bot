@@ -95,6 +95,7 @@ async def arbitrage(
         base_mint=base_mint,
     )
     if buy_instructions is None:
+        logging.error("could not create buy instruction")
         return
 
     instructions.extend(buy_instructions)
@@ -109,10 +110,12 @@ async def arbitrage(
         base_mint=SOL_MINT,
     )
     if sell_instructions is None:
+        logging.error("could not create sell instruction")
         return
 
     instructions.extend(sell_instructions)
 
     instructions.append(close_account_instruction(wsol_token_account, payer_keypair))
-    return send_transaction(solana_client, payer_keypair, instructions)
+    txn_sig = await send_transaction(solana_client, payer_keypair, instructions)
+    return txn_sig
 

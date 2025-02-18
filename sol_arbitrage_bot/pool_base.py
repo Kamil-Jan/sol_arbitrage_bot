@@ -1,3 +1,4 @@
+import logging
 from abc import ABC, abstractmethod
 from typing import Tuple, List, Optional
 
@@ -68,7 +69,7 @@ class LiquidityPool(ABC):
             return None
 
         base_decimals, quote_decimals = quote_mint_base_quote_decimals
-        base_in_count = base_in * (10 ** base_decimals)
+        base_in_count = int(base_in * (10 ** base_decimals))
 
         quote_out = await self.calculate_received_quote_tokens(
             solana_client,
@@ -78,7 +79,7 @@ class LiquidityPool(ABC):
         if quote_out is None:
             return None
 
-        quote_out_count = quote_out * (10 ** quote_decimals)
+        quote_out_count = int(quote_out * (10 ** quote_decimals))
 
         slippage_adjustment = 1 - (slippage / 100)
         minimum_quote_out_count = int(quote_out_count * slippage_adjustment)

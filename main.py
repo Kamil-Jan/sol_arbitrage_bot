@@ -81,6 +81,9 @@ async def main(wallet: str, rpc_url: str):
 
         buy_pool = liquidity_pools[argmin(liquidity_pools_prices)]
         sell_pool = liquidity_pools[argmax(liquidity_pools_prices)]
+        print("buy pool", buy_pool.pair_address)
+        print("sell pool", sell_pool.pair_address)
+
         arbitrage_result = await arbitrage(solana_client, buy_pool, sell_pool, payer_keypair, 0.01)
         print(arbitrage_result)
 

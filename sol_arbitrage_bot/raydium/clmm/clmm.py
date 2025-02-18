@@ -172,7 +172,7 @@ class ClmmPool(LiquidityPool):
             logging.error(f"Error calculating token price: {e}")
             return None
 
-    async def get_quote_mint(self, base_mint: Pubkey) -> Optional[Pubkey]:
+    def get_quote_mint(self, base_mint: Pubkey) -> Optional[Pubkey]:
         if self.pool_keys.mint_a == base_mint:
             return self.pool_keys.mint_b
         elif self.pool_keys.mint_b == base_mint:
@@ -180,7 +180,7 @@ class ClmmPool(LiquidityPool):
         logging.error(f"Invalid base mint address {base_mint} for pool {self.pair_address}")
         return None
 
-    async def get_base_quote_decimals(self, base_mint: Pubkey) -> Optional[Tuple[int, int]]:
+    def get_base_quote_decimals(self, base_mint: Pubkey) -> Optional[Tuple[int, int]]:
         if self.pool_keys.mint_a == base_mint:
             base_decimals = self.pool_keys.mint_decimals_a
             quote_decimals = self.pool_keys.mint_decimals_b
