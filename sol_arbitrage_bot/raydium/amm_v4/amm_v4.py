@@ -7,17 +7,13 @@ from solders.pubkey import Pubkey
 from solders.keypair import Keypair
 from solders.instruction import AccountMeta, Instruction
 
-from sol_arbitrage_bot.constants import SOL_MINT, SOL_DECIMALS, TOKEN_PROGRAM_ID
+from sol_arbitrage_bot.constants import SOL_MINT, TOKEN_PROGRAM_ID
 from sol_arbitrage_bot.solana_client import SolanaClient
 from sol_arbitrage_bot.accounts import *
 
-from .pool_base import LiquidityPool
+from sol_arbitrage_bot.pool_base import LiquidityPool
 from .layouts import AMM_V4_LAYOUT, MARKET_STATE_LAYOUT_V3
-
-
-AMM_V4_PROGRAM_ID = Pubkey.from_string("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8")
-OPEN_BOOK_PROGRAM_ID = Pubkey.from_string("srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX")
-RAY_AUTHORITY_V4 = Pubkey.from_string("5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1")
+from .constants import AMM_V4_PROGRAM_ID, OPEN_BOOK_PROGRAM_ID, RAY_AUTHORITY_V4
 
 
 def bytes_of(value):
@@ -283,7 +279,8 @@ class AmmV4Pool(LiquidityPool):
         minimum_amount_out: int,
         token_account_in: Pubkey,
         token_account_out: Pubkey,
-        owner: Pubkey
+        owner: Pubkey,
+        input_mint: Pubkey,
     ) -> Optional[Instruction]:
         try:
             keys = [
@@ -394,7 +391,8 @@ class AmmV4Pool(LiquidityPool):
             minimum_amount_out=minimum_quote_out_count,
             token_account_in=base_token_account,
             token_account_out=quote_token_account,
-            owner=payer_keypair.pubkey()
+            owner=payer_keypair.pubkey(),
+            input_mint=base_mint,
         )
         if swap_instruction is None:
             return None
@@ -419,14 +417,17 @@ class AmmV4Pool(LiquidityPool):
         if quote_balance is None:
             logging.error("could not fetch quote balance")
             return None
-        print(quote_balance)
 
         base_quote_decimals = self.get_base_quote_decimals(base_mint)
         if base_quote_decimals is None:
             logging.error("invalid base mint")
-            return
+            return None
 
         base_decimals, quote_decimals = base_quote_decimals
+
+        quote_mint = self.get_quote_mint(base_mint)
+        if quote_mint is None:
+            return None
 
         quote_in = quote_balance.ui_amount * (percentage / 100)
         quote_in_count = int(quote_in * (10 ** quote_decimals))
@@ -436,7 +437,6 @@ class AmmV4Pool(LiquidityPool):
             quote_in,
             base_mint,
         )
-        print(quote_in, base_out)
         if base_out is None:
             return None
 
@@ -450,7 +450,8 @@ class AmmV4Pool(LiquidityPool):
             minimum_amount_out=minimum_base_out_count,
             token_account_in=quote_token_account,
             token_account_out=base_token_account,
-            owner=payer_keypair.pubkey()
+            owner=payer_keypair.pubkey(),
+            input_mint=quote_mint,
         )
         if swap_instruction is None:
             return None

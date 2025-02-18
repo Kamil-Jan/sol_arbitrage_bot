@@ -9,7 +9,7 @@ from sol_arbitrage_bot.constants import SOL_MINT
 
 class LiquidityPool(ABC):
     @abstractmethod
-    async def get_token_price(self, solana_client: SolanaClient, base_mint_address: Pubkey = SOL_MINT) -> float:
+    async def get_token_price(self, solana_client: SolanaClient, base_mint: Pubkey = SOL_MINT) -> float:
         pass
 
     @abstractmethod
@@ -24,9 +24,30 @@ class LiquidityPool(ABC):
     async def calculate_received_quote_tokens(
         self,
         solana_client: SolanaClient,
-        base_in_count: int,
+        base_in: float,
         base_mint: Pubkey,
-    ) -> Optional[Tuple[Pubkey, float, int]]:
+    ) -> Optional[float]:
+        pass
+
+    @abstractmethod
+    async def calculate_received_base_tokens(
+        self,
+        solana_client: SolanaClient,
+        quote_in: float,
+        base_mint: Pubkey,
+    ) -> Optional[float]:
+        pass
+
+    @abstractmethod
+    def make_swap_instruction(
+        self,
+        amount_in: int,
+        minimum_amount_out: int,
+        token_account_in: Pubkey,
+        token_account_out: Pubkey,
+        owner: Pubkey,
+        input_mint: Pubkey,
+    ) -> Optional[Instruction]:
         pass
 
     @abstractmethod

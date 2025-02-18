@@ -4,10 +4,15 @@ from typing import Optional
 from solders.pubkey import Pubkey
 
 from sol_arbitrage_bot.solana_client import SolanaClient
+from sol_arbitrage_bot.pool_base import LiquidityPool
 
-from .pool_base import LiquidityPool
-from .amm_v4 import AMM_V4_PROGRAM_ID, AmmV4Pool, decode_amm_v4_pool_keys, decode_market_state_v3
-from .clmm import CLMM_PROGRAM_ID, ClmmPool, decode_clmm_pool_keys
+from sol_arbitrage_bot.raydium.amm_v4.constants import AMM_V4_PROGRAM_ID
+from sol_arbitrage_bot.raydium.clmm.constants import CLMM_PROGRAM_ID
+
+
+def is_raydium_pool(pool_data) -> bool:
+    owner = pool_data.owner
+    return owner == AMM_V4_PROGRAM_ID or owner == CLMM_PROGRAM_ID
 
 
 async def fetch_liquidity_pool(solana_client: SolanaClient, pair_address: Pubkey) -> Optional[LiquidityPool]:
